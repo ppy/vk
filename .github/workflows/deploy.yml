@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build & Pack
+        run: |
+          dotnet build -c Release src/vk.generator/vk.generator.csproj
+          dotnet build -c Release src/vk.rewrite/vk.rewrite.csproj
+          dotnet pack -c Release src/vk/vk.csproj /p:Version=$(git describe --exact-match --tags HEAD)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vk
+          path: bin/Release/vk/ppy.*.nupkg
+
+      - name: Publish tagged release to nuget.org
+        run: dotnet nuget push bin/Release/vk/ppy.*.nupkg -s https://api.nuget.org/v3/index.json --api-key ${{secrets.NUGET_API_KEY}}
